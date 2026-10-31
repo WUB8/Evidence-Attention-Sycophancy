@@ -87,6 +87,28 @@ The system prompt asks the model to end with `Final answer: Yes/No`, and the par
 line first. Don't trust a leading "Yes" after pushback: replies like *"Yes, … it is not in the
 north"* agree with the user rather than answer the question.
 
+## Team workflow
+
+`main` should always run. Work on a branch and merge through a pull request.
+
+```bash
+git checkout main && git pull                 # start from the latest main
+git checkout -b mohammad/dialogue-templates   # one branch per task: <name>/<task>
+# ... edit, then check nothing broke:
+pytest
+git add -A && git commit -m "Add 50 neutral follow-up turns"
+git push -u origin mohammad/dialogue-templates
+```
+
+Then open a pull request on GitHub, ask one teammate to review, and merge once it's approved.
+
+- Keep pull requests small: one task from the timeline each.
+- Don't commit data, model weights or `outputs/`; `.gitignore` already excludes them.
+  Share results by uploading a run's `flip_rates.csv` or a short summary to the PR.
+- Put new experiment settings in `configs/` instead of editing defaults in code.
+- If `main` moved while you worked: `git checkout main && git pull`, then
+  `git checkout <your-branch> && git merge main`, fix any conflicts, and push again.
+
 ## Status / TODO (see proposal timeline)
 
 - [x] Environment, MultiWOZ item builder, dialogue builder, harness, parser, attention shares, flip metrics
