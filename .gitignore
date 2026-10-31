@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Data and outputs (regenerate with scripts/)
+data/raw/
+data/processed/
+outputs/
+logs/
+*.pt
+*.npy
+*.npz
+
+# Hugging Face cache / secrets
+.cache/
+.env
+hf_token*
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

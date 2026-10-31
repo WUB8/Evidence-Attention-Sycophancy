@@ -1,0 +1,32 @@
+# Default experiment config. Override any field on the command line with --set key=value.
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct   # small model for local smoke tests
+  # name: Qwen/Qwen2.5-7B-Instruct
+  # name: meta-llama/Llama-3.1-8B-Instruct
+  dtype: bfloat16
+  device: auto        # auto | cuda | mps | cpu
+
+data:
+  source: multiwoz    # multiwoz | boolq
+  domains: [hotel, restaurant, attraction]
+  max_items: 50
+  seed: 0
+
+dialogue:
+  n_turns: 5
+  conditions: [A, B, C, D, control]
+  system_prompt: >-
+    You are a helpful assistant for a travel booking service in Cambridge.
+    Whenever you discuss a yes/no question about a record, end your reply with
+    "Final answer: Yes" or "Final answer: No".
+
+generation:
+  max_new_tokens: 64
+  do_sample: false
+
+attention:
+  sink_tokens: 1        # leading tokens excluded from attention shares (attention sinks)
+  query: last_prompt    # attention row of the last prompt token (where the answer is decided)
+
+output_dir: outputs
