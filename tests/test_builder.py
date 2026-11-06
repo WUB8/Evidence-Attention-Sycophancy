@@ -50,3 +50,33 @@ def test_flip_metrics():
     rates = flip_rate_by_turn(df)
     assert rates.set_index("turn")["flip_rate"].to_dict() == {2: 0.0, 3: 1.0}
     assert turn_of_flip(df)["turn_of_flip"].iloc[0] == 3
+
+
+def _pushback_texts(d):
+    return [t.text for t in d.turns if t.kind == "pushback"]
+
+
+def test_b_pushback_refers_back_to_record_question():
+    from sycoattn.dialogue import templates as T
+    for cond in ["B2", "B3", "B5"]:
+        (text,) = _pushback_texts(build_dialogue(ITEM, cond))
+        assert text.startswith(T.PUSHBACK_RECALL), cond
+    assert not any(t.startswith(T.PUSHBACK_RECALL) for t in _pushback_texts(build_dialogue(ITEM, "A")))
+
+
+def test_neutral_turns_are_not_yes_no_questions():
+    from sycoattn.dialogue import templates as T
+    yes_no_openers = ("is ", "are ", "do ", "does ", "can ", "should ", "will ", "would ")
+    for n in T.NEUTRAL:
+        question = n.split(". ", 1)[-1].lower()
+        assert not question.startswith(yes_no_openers), n
+
+
+def test_pushback_order_shuffled_per_item_and_shared_across_conditions():
+    items = [Item(id=f"i{k}", evidence="e", question="q?", answer=True) for k in range(20)]
+    firsts = {_pushback_texts(build_dialogue(it, "A"))[0] for it in items}
+    assert len(firsts) > 1  # turn 2 no longer always uses the same template
+    for it in items:
+        a, d = _pushback_texts(build_dialogue(it, "A")), _pushback_texts(build_dialogue(it, "D"))
+        assert [x.split("\n\n")[0] for x in d] == a  # D = A wording + restated evidence
+        assert len(set(a)) == 4  # no template repeats within a 5-turn dialogue

@@ -78,9 +78,23 @@ def _question_turn(item: Item) -> UserTurn:
     ])
 
 
-def _pushback_turn(claim: str, i: int, agree: bool = False, restate: str | None = None) -> UserTurn:
+def _pushback_order(item: Item) -> list[int]:
+    """Per-item shuffled order of pushback templates. Without it, turn t always used template
+    t, so turn effects and wording effects were confounded. Seeded by item id, so every
+    condition of the same item uses the same order (paired comparisons stay paired)."""
+    order = list(range(len(T.PUSHBACK)))
+    random.Random(f"pushback-order|{item.id}").shuffle(order)
+    return order
+
+
+def _pushback_turn(claim: str, i: int, agree: bool = False, restate: str | None = None,
+                   order: list[int] | None = None, recall: bool = False) -> UserTurn:
     pool = T.AGREE_PUSHBACK if agree else T.PUSHBACK
-    segs = [Segment(PUSHBACK, pool[i % len(pool)].format(claim=claim))]
+    idx = order[i % len(order)] if order else i % len(pool)
+    text = pool[idx % len(pool)].format(claim=claim)
+    if recall:
+        text = T.PUSHBACK_RECALL + text
+    segs = [Segment(PUSHBACK, text)]
     if restate is not None:
         segs.append(Segment(EVIDENCE_RESTATED, T.EVIDENCE_RESTATE.format(evidence=restate)))
     return UserTurn("pushback", segs)
@@ -91,27 +105,30 @@ def build_dialogue(item: Item, condition: str, n_turns: int = 5, system_prompt: 
     rng = rng or random.Random(0)
     wrong = "no" if item.answer else "yes"
     neutral = rng.sample(T.NEUTRAL, k=min(len(T.NEUTRAL), n_turns))
+    order = _pushback_order(item)
     turns: list[UserTurn] = []
     claim = wrong
 
     if condition == "A":
-        turns = [_question_turn(item)] + [_pushback_turn(wrong, i) for i in range(n_turns - 1)]
+        turns = [_question_turn(item)] + [_pushback_turn(wrong, i, order=order) for i in range(n_turns - 1)]
     elif condition.startswith("B"):
         k = int(condition[1:]) if len(condition) > 1 else n_turns
         assert 2 <= k <= n_turns, f"pushback turn must be in [2, {n_turns}]"
         turns = [_question_turn(item)]
         turns += [UserTurn("neutral", [Segment(NEUTRAL, neutral[i])]) for i in range(k - 2)]
-        turns += [_pushback_turn(wrong, 0)]
+        # Same recall prefix for every k (B2 included), so only the distance varies across B_k.
+        turns += [_pushback_turn(wrong, 0, order=order, recall=True)]
     elif condition == "C":
         # TODO(team): confirm the C design (how late the evidence goes, how many setup turns).
         turns = [UserTurn("setup", [Segment(SETUP, rng.choice(T.SETUP))]), _question_turn(item)]
-        turns += [_pushback_turn(wrong, i) for i in range(n_turns - 2)]
+        turns += [_pushback_turn(wrong, i, order=order) for i in range(n_turns - 2)]
     elif condition == "D":
         turns = [_question_turn(item)]
-        turns += [_pushback_turn(wrong, i, restate=item.evidence) for i in range(n_turns - 1)]
+        turns += [_pushback_turn(wrong, i, restate=item.evidence, order=order) for i in range(n_turns - 1)]
     elif condition == "control":
         claim = item.answer_str
-        turns = [_question_turn(item)] + [_pushback_turn(claim, i, agree=True) for i in range(n_turns - 1)]
+        turns = [_question_turn(item)]
+        turns += [_pushback_turn(claim, i, agree=True, order=order) for i in range(n_turns - 1)]
     else:
         raise ValueError(f"unknown condition: {condition}")
 

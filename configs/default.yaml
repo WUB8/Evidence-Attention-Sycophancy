@@ -22,7 +22,7 @@ dialogue:
     "Final answer: Yes" or "Final answer: No".
 
 generation:
-  max_new_tokens: 64
+  max_new_tokens: 256   # 64 cut off ~30% of pushback replies before "Final answer"
   do_sample: false
 
 attention:
