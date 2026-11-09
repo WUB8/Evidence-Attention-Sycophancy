@@ -124,8 +124,6 @@ then `rm -rf` it; Open OnDemand cannot delete non-empty folders efficiently.
   `cluster_env.sh` installs `torch==2.14.1` from PyTorch's cu126 index. The job stops with
   "torch cannot see the GPU" if this ever breaks; check `nvidia-smi` for the driver's CUDA version.
 - If you change the torch pin, delete `/scratch/$USER/conda_envs/sycoattn` so the next job rebuilds it.
-- Gemma chat templates reject a system message, and every dialogue starts with one; folding the
-  system prompt into the first user turn is needed before running Gemma.
 - After a run, check how many replies have an empty `parsed` in `turns.jsonl`: scoring relies on
   the model writing "Final answer: Yes/No", and models differ in how well they follow it.
 
