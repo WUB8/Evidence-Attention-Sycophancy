@@ -36,14 +36,7 @@ pip install -e ".[dev]"
 pytest
 ```
 
-Cluster:
-
-```bash
-source scripts/cluster_env.sh   # creates the conda env the first time
-sbatch slurm/run_pilot.sbatch   # Qwen2.5-7B-Instruct pilot on 50 items
-```
-
-Llama-3.1-8B-Instruct is gated: accept the license on Hugging Face, then run `huggingface-cli login`.
+Cluster: see [Running on Explorer](#running-on-explorer) below.
 
 ## Running
 
@@ -61,6 +54,78 @@ Any config field can be overridden with `--set key.sub=value`. Outputs go to
 | `turns.jsonl` | one row per dialogue turn: user text, reply, parsed answer, gold answer |
 | `attention.npz` | `"<item>\|<cond>::<group>"` → `[turns, layers, heads]` attention share |
 | `flip_rates.csv` | flip rate per condition and turn (initially-correct dialogues only) |
+
+## Running on Explorer
+
+Northeastern's Explorer cluster, course account `cs6120.202710`.
+
+**Log in.** Since 2026-11-06 Explorer only accepts the SSH key Research Computing generated
+for you. Download the two key files from Open OnDemand (Files → Home Directory → `.ssh`), move
+them into `~/.ssh/`, `chmod 600` the private one, and add to `~/.ssh/config`:
+
+```
+Host explorer
+    HostName login.explorer.northeastern.edu
+    User <your-username>
+    IdentityFile ~/.ssh/<your-username>-<date>
+```
+
+Then `ssh explorer`. Details: https://rc.northeastern.edu/2026/10/23/ssh-instructions-for-explorer/
+
+**First time only.** Clone the repo, then build the environment on a compute node (not the
+login node, which is for light work only):
+
+```bash
+git clone https://github.com/WUB8/Evidence-Attention-Sycophancy.git && cd Evidence-Attention-Sycophancy
+srun -p short -A cs6120.202710 --mem=8G -t 01:00:00 --pty /bin/bash
+source scripts/cluster_env.sh       # ~10 min the first time; later it only activates
+hf auth login                       # only for gated models (Llama); accept the license on HF first
+exit
+```
+
+**Submit a run** from the repo root. `logs/` must exist before `sbatch`, because Slurm opens
+the log file before the script runs:
+
+```bash
+mkdir -p logs
+MODEL=Qwen/Qwen2.5-14B-Instruct CONDITIONS='[A,C,B2,B5]' sbatch --export=ALL slurm/run_pilot.sbatch
+```
+
+Set `MODEL`, `CONDITIONS` and `ITEMS` (default 50) in front of `sbatch` as shown; putting them
+inside `--export=` breaks the commas in `[A,C,B2,B5]`. Without them the job runs
+Qwen2.5-7B-Instruct on all five conditions.
+
+**Check on it:**
+
+```bash
+squeue -u $USER --start                           # PENDING (Priority/Resources) or RUNNING
+tail -f logs/sycoattn-pilot-<jobid>.out           # progress bar, errors
+sacct -j <jobid> -X -o JobID,State,ExitCode,Elapsed   # after it ends
+```
+
+Results go to `outputs/<model>/pilot-<jobid>/`. Copy what you need to your laptop with
+`scp -r explorer:Evidence-Attention-Sycophancy/outputs/<model>/pilot-<jobid> outputs/<model>/`.
+
+**What the job asks for.** `gpu` partition, one H200 (141 GB), 64 GB RAM, 4 h. The `gpu`
+partition allows one GPU per job and at most 8 h (`sbatch -t 08:00:00 ...` for slow models).
+Models up to ~30-40B fit in bf16 on one H200; 70B does not. To use an A100 80 GB instead:
+`sbatch --gres=gpu:a100:1 --constraint=a100@80g ...`. See free GPUs with
+`sinfo -p gpu -O "Gres:22,GresUsed:28,StateCompact:8,NodeList:16"`.
+
+**Where things live.** Everything big goes in `/scratch/$USER` (home is capped at 75 GB):
+the conda env (`conda_envs/sycoattn`, ~6 GB), pip/conda caches and the Hugging Face cache
+(`hf_cache`, ~30 GB for a 14B model, including your HF login token). Scratch is purged
+monthly and not backed up: a missing env or model is rebuilt / re-downloaded by the next job,
+but copy results you want to keep elsewhere. To delete a big folder quickly, rename it first,
+then `rm -rf` it; Open OnDemand cannot delete non-empty folders efficiently.
+
+**Gotchas we hit**
+- The PyPI torch wheel targets CUDA 13, but Explorer's driver supports CUDA ≤ 12.8, so
+  `cluster_env.sh` installs `torch==2.14.1` from PyTorch's cu126 index. The job stops with
+  "torch cannot see the GPU" if this ever breaks; check `nvidia-smi` for the driver's CUDA version.
+- If you change the torch pin, delete `/scratch/$USER/conda_envs/sycoattn` so the next job rebuilds it.
+- After a run, check how many replies have an empty `parsed` in `turns.jsonl`: scoring relies on
+  the model writing "Final answer: Yes/No", and models differ in how well they follow it.
 
 ## Conditions (5 user turns)
 
