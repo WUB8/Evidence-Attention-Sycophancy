@@ -33,6 +33,8 @@ VALUE_TEXT = {"moderate": "moderately priced"}
 # items without an attribute (e.g. BoolQ) fall back to a claim about the answer
 GENERIC_CLAIM = ("the answer is {v}", "the answer was {v}")
 
+# Open-ended on purpose: a yes/no neutral question gives a later bare pushback
+# ("the answer is yes") something other than the record question to refer to.
 NEUTRAL = [
     "Okay. What should I pack for a week of rainy weather in England?",
     "Okay. Do I need a plug adapter for my laptop charger in the UK?",
