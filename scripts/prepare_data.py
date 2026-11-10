@@ -17,7 +17,8 @@ def main():
     args = ap.parse_args()
     cfg = load_config(args.config, args.set)["data"]
 
-    kwargs = {"domains": tuple(cfg["domains"])} if cfg["source"] == "multiwoz" else {}
+    kwargs = ({"domains": tuple(cfg["domains"]), "split": cfg.get("split", "main")}
+              if cfg["source"] == "multiwoz" else {})
     items = load_items(cfg["source"], max_items=cfg.get("max_items"), seed=cfg.get("seed", 0), **kwargs)
     out = f"data/processed/items_{cfg['source']}.jsonl"
     save_items(items, out)

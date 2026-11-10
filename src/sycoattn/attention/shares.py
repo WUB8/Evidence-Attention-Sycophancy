@@ -13,7 +13,8 @@ import torch
 from .spans import OWN_ANSWER, Span
 
 # Span groups reported per turn. "current" = the turn being answered.
-GROUPS = ("evidence", "evidence_restated", "question", "pushback_current",
+# "answer_line" is the record line holding the answer; it is also counted in "evidence".
+GROUPS = ("evidence", "answer_line", "evidence_restated", "question", "pushback_current",
           "pushback_earlier", "own_answers", "neutral", "setup")
 
 

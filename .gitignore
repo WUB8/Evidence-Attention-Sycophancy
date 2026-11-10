@@ -25,3 +25,14 @@ hf_token*
 .DS_Store
 .vscode/
 .idea/
+
+# LaTeX build files (reports/writeup)
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.synctex.gz
+*.fdb_latexmk
+*.fls
+reports/writeup/main.pdf
