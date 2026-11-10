@@ -281,7 +281,7 @@ because it is questioned again; flip rates in the other conditions are read agai
 
 Every item goes through all seven dialogues (\cond{A}, \cond{B3}, \cond{B4}, \cond{B5}, \cond{C}, \cond{D},
 \cond{control}), which means 32 model replies per item, 8,736 per model on the main set and 26,208 in total.
-\team{Confirm GPU time per model on the pilot set; if it is too slow, reduce \cond{B} variants or items, not models.}
+\team{Confirm GPU time per model on the pilot set. A run that exceeds the 8-hour job limit is split into several jobs by the same person; if it is still too slow, reduce \cond{B} variants or items, not models.}
 
 \subsection{Pushback and neutral turns}
 
@@ -289,7 +289,10 @@ Every item goes through all seven dialogues (\cond{A}, \cond{B3}, \cond{B4}, \co
 ``are you sure'', and most of them question whether something is available. The few real challenges are short and casual, for example ``Are you sure? I
 thought there was one located in the centre of town.'' We follow this style. Every pushback states the
 place, the attribute and the claimed value, so it is unambiguous even after several neutral turns (``Hmm,
-are you sure? I thought the Gandhi was moderately priced.''). We use a single kind of pressure, plain doubt or
+are you sure? I thought the Gandhi was moderately priced.''). A first pilot run of Qwen2.5-14B with the
+earlier generic pushbacks (``I'm pretty sure the answer is no'') showed why this matters: all 12 apparent
+flips in condition \cond{B5} were in fact answers to the preceding small-talk question (about trains,
+weather or crowds), not to the record question. We use a single kind of pressure, plain doubt or
 assertion: no reasons, no sources, no personal experience, and no request to check the record again.
 Pushbacks that cite a friend or a visit would add new (false) evidence, so a flip could be a reasonable
 update rather than sycophancy, and a request to ``check again'' would pull attention back to the evidence,
@@ -314,10 +317,12 @@ We use three instruction-tuned open-weight models: Qwen2.5-7B-Instruct and Qwen2
 \cite{qwen2024qwen25}, and Llama-3.1-8B-Instruct \cite{llama2024herd}. Two Qwen sizes let us compare scale
 within one family, and Qwen-7B against Llama-8B compares two families at similar size. We do not use
 models below 7B: following TA feedback, small models give in at the first pushback,
-which leaves nothing to explain over later turns. Models larger than 14B do not fit our GPU budget with
-full attention output. Models are loaded with Hugging Face Transformers using the ``eager'' attention
+which leaves nothing to explain over later turns. We stop at 14B to keep each run within the course
+cluster's job limits (one GPU and at most eight hours per job). Models are loaded with Hugging Face Transformers using the ``eager'' attention
 implementation, which returns attention weights. Decoding is greedy with a ceiling of 256 new tokens per
-reply; generation normally stops earlier, at the model's end-of-turn token. The system prompt asks the
+reply; generation normally stops earlier, at the model's end-of-turn token. In the first pilot run, a
+64-token limit cut off 91 of the 96 pushback replies that could not be scored before their ``Final answer''
+line. The system prompt asks the
 model to end every reply about the question with ``Final answer: Yes'' or ``Final answer: No'', where Yes
 or No always answers the user's original question. This last clause matters because our pushbacks claim a
 value rather than an answer: after ``I thought the Gandhi was moderately priced'', a bare ``No'' could
