@@ -34,7 +34,8 @@ def main():
     cfg = load_config(args.config, args.set)
 
     d = cfg["data"]
-    kwargs = {"domains": tuple(d["domains"])} if d["source"] == "multiwoz" else {}
+    kwargs = ({"domains": tuple(d["domains"]), "split": d.get("split", "main")}
+              if d["source"] == "multiwoz" else {})
     items = load_items(d["source"], max_items=d.get("max_items"), seed=d.get("seed", 0), **kwargs)
     dialogues = build_dialogues(items, cfg["dialogue"]["conditions"], cfg["dialogue"]["n_turns"],
                                 cfg["dialogue"]["system_prompt"].strip(), seed=d.get("seed", 0))

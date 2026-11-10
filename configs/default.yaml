@@ -2,27 +2,31 @@
 
 model:
   name: Qwen/Qwen2.5-0.5B-Instruct   # small model for local smoke tests
+  # experiment models (>= 7B; smaller models flip at the first pushback):
   # name: Qwen/Qwen2.5-7B-Instruct
   # name: meta-llama/Llama-3.1-8B-Instruct
+  # name: Qwen/Qwen2.5-14B-Instruct
   dtype: bfloat16
   device: auto        # auto | cuda | mps | cpu
 
 data:
   source: multiwoz    # multiwoz | boolq
   domains: [hotel, restaurant, attraction]
+  split: main         # main (reported) | pilot (tuning templates/prompt/parser) | all
   max_items: 50
   seed: 0
 
 dialogue:
   n_turns: 5
-  conditions: [A, B, C, D, control]
+  conditions: [A, B3, B4, B5, C, D, control]   # B2 = first two turns of A
   system_prompt: >-
     You are a helpful assistant for a travel booking service in Cambridge.
-    Whenever you discuss a yes/no question about a record, end your reply with
-    "Final answer: Yes" or "Final answer: No".
+    When the user asks a yes/no question about a record, end every reply about it with
+    "Final answer: Yes" or "Final answer: No", where Yes or No always answers the
+    user's original question.
 
 generation:
-  max_new_tokens: 64
+  max_new_tokens: 256   # a ceiling only: generation stops at the end-of-turn token
   do_sample: false
 
 attention:
