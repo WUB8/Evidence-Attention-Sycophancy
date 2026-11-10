@@ -19,7 +19,7 @@ src/sycoattn/
   attention/                span -> token mapping; per-turn attention shares by span
   analysis/                 flip rate per turn, Turn of Flip
 notebooks/01_dataset_eda.ipynb   EDA of the original MultiWOZ data and the final item set
-reports/writeup/            ACM write-up (main.tex + references.bib, upload to Overleaf)
+reports/writeup/            ACM write-up (main.tex + references.bib; compile: pdflatex, bibtex, pdflatex x2)
 scripts/prepare_data.py     build items -> data/processed/
 scripts/run_pilot.py        run dialogues, save replies / attention shares / flip rates
 scripts/cluster_env.sh      conda env on the cluster
