@@ -86,47 +86,6 @@ Do **not**: use `--no-attention`; set `data.max_items` (the main run needs all i
 `data.seed` or the templates between models (all models must see the same dialogues).
 Masking (RQ4) is a separate run on condition A and is not part of this step.
 
-## Run plan and task split (proposed — team to confirm)
-
-### Why two people with one GPU each, not four
-
-The university HPC gives one login per person and one GPU per account (a second GPU needs a
-request), so running in parallel needs more than one account. Two accounts are enough if we
-split by **whole model**: Qwen-14B is about twice as slow as the 7–8B models, so one person
-running Qwen-14B and another running Qwen-7B then Llama-8B finish at about the same time.
-
-We do not split the work across four people and four cluster setups, because:
-
-- **Setup cost ×4.** Each person would need cluster access, the conda environment, the Llama
-  licence and a Hugging Face login, in the week before the full runs.
-- **Results must come from one environment.** A different `torch`/`transformers` version or GPU
-  type can change replies and attention values slightly. If the conditions of one model are run
-  by different people (e.g. Qwen-14B A/C/B5 by one person and D/control/B3/B4 by another), a
-  difference between conditions — which is what RQ1–RQ4 measure — could come from *who ran it*
-  rather than from the condition, and we could not tell the two apart.
-- **Fewer chances for mistakes.** Fewer people running means fewer places where a run uses the
-  wrong split, the wrong commit, or loses `attention.npz`.
-- B2 is not run: it is identical to the first two turns of A, so k=2 is taken from A.
-
-Rule: **all conditions of a model are run by the same person**, from the same tagged commit,
-on the same GPU type.
-
-### Steps
-
-| Step | What | Who | Where | When |
-|---|---|---|---|---|
-| 0. Setup | Fix the TODOs in `scripts/cluster_env.sh` (module, scratch dir) and `slurm/run_pilot.sbatch` (partition, GPU type ≥ 40 GB, e.g. `--gres=gpu:a100:1`, `--mem=64G`). Install, then pin the installed `torch`, `transformers`, `accelerate` versions with `==` in `requirements.txt` and `pyproject.toml`. Accept the Llama licence, `huggingface-cli login`. Smoke test 2 items per model (Llama's chat template is untested): `python scripts/run_pilot.py --set model.name=<model> data.split=pilot data.max_items=2`. Tag the commit `run-v1`. | Bijun | GPU | before 12/11 |
-| 1. Pilot | One person, one GPU, three models in turn: `sbatch --export=ALL,MODEL=<model> slurm/run_pilot.sbatch` (59 pilot items). Check run time, errors, and how often replies end with "Final answer". Share the three output folders on the team drive. If templates or the prompt change after the pilot, re-tag (`run-v2`). | Bijun | GPU | 11–12/11 |
-| 2. Main runs | Two people, one GPU each, `SPLIT=main`, same tag and GPU type. **Person A:** Qwen2.5-14B-Instruct, all conditions. **Person B:** Qwen2.5-7B-Instruct, then Llama-3.1-8B-Instruct, all conditions. Upload `turns.jsonl`, `attention.npz`, `flip_rates.csv` per model to the drive. | A: Bijun, B: Shiv | GPU | 13–19/11 |
-| 3a. Hand labels | Label ~200 pushback-turn replies from the pilot runs (all 3 models): 50 labelled by everyone (report % agreement), ~38 each otherwise. Labels yes / no / unclear for the original question. Can start right after step 1. | all four | laptop | 12–16/11 |
-| 3b. Answer reading | Team picks parser (labels measure its accuracy) or LR classifier (labels train / dev / test by record). | Tuyet | laptop | 16–19/11 |
-| 3c. Probe | Per model: probe on per-head attention shares → flip, 5-fold by record; heads chosen on 4 folds are used for the 5th. | Tuyet | laptop | 20–24/11 |
-| 3d. Analysis | RQ1–RQ5 tables and figures from the saved files (simple within-turn comparisons; control = baseline). | all, split by RQ | laptop | 20–26/11 |
-| 4. Masking | Write the masking code (block attention from the current pushback + reply to the record tokens; test on Qwen-0.5B on a laptop). Then run condition A, main split, once per model — **by the same person who ran that model in step 2**. | code: TBD; runs: Bijun (14B), Shiv (7B, 8B) | code: laptop, runs: GPU | 20–30/11 |
-| 5. Write-up | `reports/writeup/main.tex`: methodology (now), results and conclusion after step 3–4; resolve the red `[TEAM: …]` notes and check every `VERIFY` citation. | lead Bijun; methodology Tuyet + Mohammad | Overleaf | until 8/12 |
-
-Owners follow the proposal timeline where it names one; change freely, but keep the rule above.
-
 ## Items
 
 Yes/no questions about MultiWOZ database records (`data/multiwoz.py`): `area` (all domains),
@@ -186,15 +145,3 @@ Then open a pull request on GitHub, ask one teammate to review, and merge once i
 - Put new experiment settings in `configs/` instead of editing defaults in code.
 - If `main` moved while you worked: `git checkout main && git pull`, then
   `git checkout <your-branch> && git merge main`, fix any conflicts, and push again.
-
-## Status / TODO (see proposal timeline)
-
-- [x] Environment, MultiWOZ item builder, dialogue builder, harness, parser, attention shares, flip metrics
-- [x] Item filtering and 50/50 balance; pilot/main split by record — `data/multiwoz.py`
-- [x] Pushback (8, one pressure type) and neutral (30) templates; condition C kept as is — `dialogue/`
-- [ ] Review the 30 neutral turns — `dialogue/templates.py`
-- [ ] Hand-check ~200 parsed answers; answer classifier (train/dev/test by record)
-- [ ] Decide how to summarise attention over layers/heads
-- [ ] Linear probe for sycophancy heads (held-out split)
-- [ ] Attention-masking intervention (RQ4)
-- [ ] Per-turn logistic model (statsmodels) for RQ2
