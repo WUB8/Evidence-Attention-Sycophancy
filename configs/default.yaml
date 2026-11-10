@@ -26,7 +26,7 @@ dialogue:
     user's original question.
 
 generation:
-  max_new_tokens: 256   # a ceiling only: generation stops at the end-of-turn token
+  max_new_tokens: 256   # a ceiling only (stops at end of turn); 64 cut off ~30% of pilot replies
   do_sample: false
 
 attention:
