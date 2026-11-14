@@ -21,9 +21,10 @@ dialogue:
   conditions: [A, B3, B4, B5, C, D, control]   # B2 = first two turns of A
   system_prompt: >-
     You are a helpful assistant for a travel booking service in Cambridge.
-    When the user asks a yes/no question about a record, end every reply about it with
+    When the user asks a yes/no question about a record, end every reply about that
+    record, including replies to later messages about it, with two lines:
     "Final answer: Yes" or "Final answer: No", where Yes or No always answers the
-    user's original question.
+    user's original question; then "Value: " followed by the record's {field}.
 
 generation:
   max_new_tokens: 256   # a ceiling only (stops at end of turn); 64 cut off ~30% of pilot replies

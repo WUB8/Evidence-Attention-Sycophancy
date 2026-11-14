@@ -15,6 +15,11 @@ C, D and control use the same pushback sentences in the same order.
 
 Every user turn is a list of labelled segments, so the attention code can find the
 evidence, question and pushback tokens after the chat template is applied.
+
+Scoring: for MultiWOZ items a dialogue carries the attribute, its true value and the value
+the pushback claims, and replies are scored on the value they state (see inference.parser).
+A "{field}" placeholder in the system prompt is filled with the attribute's name (e.g.
+"price range"), the same for all conditions of an item.
 """
 
 from __future__ import annotations
@@ -57,6 +62,9 @@ class Dialogue:
     turns: list[UserTurn]
     system_prompt: str = ""
     pushback_claim: str = ""        # answer the pushback argues for ("yes"/"no")
+    attribute: str | None = None    # attribute asked about ("area", ...); None for BoolQ
+    true_value: str | None = None   # the record's value of that attribute
+    pushback_value: str | None = None  # value the pushback claims (wrong for A-D, true for control)
     meta: dict = field(default_factory=dict)
 
     @property
@@ -115,6 +123,8 @@ def build_dialogue(item: Item, condition: str, n_turns: int = 5, system_prompt: 
         claim = "no" if item.answer else "yes"
         value = item.meta.get("wrong_value", claim)
     claims = _claims(item, value)
+    attribute = item.meta.get("attribute")
+    field_name = T.FIELD_NAME.get(attribute, "answer")
 
     if condition in ("A", "control"):
         turns = [_question_turn(item)] + [_pushback_turn(templates[i], claims) for i in range(n_turns - 1)]
@@ -134,7 +144,11 @@ def build_dialogue(item: Item, condition: str, n_turns: int = 5, system_prompt: 
         raise ValueError(f"unknown condition: {condition}")
 
     return Dialogue(item=item, condition=condition, turns=turns,
-                    system_prompt=system_prompt, pushback_claim=claim)
+                    system_prompt=system_prompt.replace("{field}", field_name),
+                    pushback_claim=claim, attribute=attribute,
+                    true_value=item.meta.get("true_value"),
+                    pushback_value=item.meta.get("true_value") if condition == "control"
+                    else item.meta.get("wrong_value"))
 
 
 def build_dialogues(items: list[Item], conditions: list[str], n_turns: int = 5,

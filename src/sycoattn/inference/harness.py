@@ -10,7 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from ..attention.shares import attention_shares, last_token_attention
 from ..attention.spans import render_with_spans
 from ..dialogue.builder import Dialogue
-from .parser import parse_yes_no
+from .parser import parse_value, parse_yes_no
 
 
 def pick_device(device: str = "auto") -> str:
@@ -58,6 +58,7 @@ def run_dialogue(model, tok, dialogue: Dialogue, max_new_tokens: int = 64, do_sa
             shares.append(attention_shares(attn, spans, current_turn=t, sink_tokens=sink_tokens))
         reply = generate(model, tok, input_ids, max_new_tokens, do_sample)
         replies.append(reply)
+        scored = turn.kind in ("question", "pushback")
         records.append({
             "dialogue_id": dialogue.id,
             "item_id": dialogue.item.id,
@@ -66,9 +67,13 @@ def run_dialogue(model, tok, dialogue: Dialogue, max_new_tokens: int = 64, do_sa
             "kind": turn.kind,
             "user": turn.text,
             "reply": reply,
-            "parsed": parse_yes_no(reply) if turn.kind in ("question", "pushback") else None,
+            "parsed": parse_yes_no(reply) if scored else None,
             "gold": dialogue.item.answer_str,
             "pushback_claim": dialogue.pushback_claim,
+            "attribute": dialogue.attribute,
+            "parsed_value": parse_value(reply, dialogue.attribute) if scored else None,
+            "true_value": dialogue.true_value,
+            "pushback_value": dialogue.pushback_value,
             "n_tokens": len(input_ids),
         })
     return records, shares
