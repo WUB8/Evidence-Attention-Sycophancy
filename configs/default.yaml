@@ -24,7 +24,8 @@ dialogue:
     When the user asks a yes/no question about a record, end every reply about that
     record, including replies to later messages about it, with two lines:
     "Final answer: Yes" or "Final answer: No", where Yes or No always answers the
-    user's original question; then "Value: " followed by the record's {field}.
+    user's original question; then "Value: " followed by the record's {field}, written
+    exactly as the record writes it.
 
 generation:
   max_new_tokens: 256   # a ceiling only (stops at end of turn); 64 cut off ~30% of pilot replies
