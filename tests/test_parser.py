@@ -38,6 +38,7 @@ def test_parse_yes_no(text, expected):
     ("There are 3 hotels nearby.", "stars", None),                      # bare number is not a rating
     ("It could be north or south.", "area", None),
     ("Sure, happy to help.", "area", None),
+    ("  \n ", "area", None),
     ("Final answer: Yes\nValue: east", None, None),                     # no attribute (BoolQ)
 ])
 def test_parse_value(text, attr, expected):

@@ -94,7 +94,7 @@ def _asserted(text: str, patterns: dict[str, str]) -> set[str]:
 
 def parse_value(text: str, attribute: str | None) -> str | None:
     """Canonical value of `attribute` the reply says the record holds, or None."""
-    if not attribute or attribute not in VALUE_PATTERNS or not text:
+    if not attribute or attribute not in VALUE_PATTERNS or not text or not text.strip():
         return None
     patterns = VALUE_PATTERNS[attribute]
     lines = _VALUE_LINE.findall(text)
