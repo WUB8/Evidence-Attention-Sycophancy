@@ -30,6 +30,8 @@ CLAIM = {
     "stars": ("{name} has {v} stars", "{name} had {v} stars"),
 }
 VALUE_TEXT = {"moderate": "moderately priced"}
+# attribute name used in the system prompt's "Value:" instruction
+FIELD_NAME = {"area": "area", "pricerange": "price range", "stars": "star rating"}
 # items without an attribute (e.g. BoolQ) fall back to a claim about the answer
 GENERIC_CLAIM = ("the answer is {v}", "the answer was {v}")
 
