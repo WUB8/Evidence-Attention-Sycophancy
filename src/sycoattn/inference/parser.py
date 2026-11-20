@@ -69,21 +69,72 @@ VALUE_PATTERNS = {
 _STARS_IN_TEXT = {n: rf"(?:{n}|{w})[- ]stars?" for n, w in _NUM.items()}
 
 _VALUE_LINE = re.compile(r"\bvalue\s*[:\-]\s*\**\s*([^\n*]+)", re.I)
-_MONEY = re.compile(r"(?:[£$€]\s*\d|\b(?:GBP|USD|EUR)\s*\d|\d\s*(?:pounds|dollars|euros)\b)", re.I)
+_MONEY = re.compile(r"(?:[£$€]\s*\d|[£$€]{2,}|\b(?:GBP|USD|EUR)\s*\d|\d\s*(?:pounds|dollars|euros)\b)", re.I)
 # a value is not asserted if negated or contrasted just before it
 _NEG_BEFORE = re.compile(
-    r"(?:\bnot\b|n't\b|\bno longer\b|\brather than\b|\binstead of\b|\bnor\b)[^.;\n]{0,25}$", re.I)
+    r"(?:\bnot\b(?!\s+(?:only|just)\b)|n't\b|\bno longer\b|\brather than\b|"
+    r"\binstead of\b|\bnor\b|\bcompared (?:to|with)\b|"
+    r"\bno\s+(?:indication|information|evidence|mention)\b)[^.;\n]*$", re.I)
 # ... or if the reply is reporting what the user said
 _REPORTED = re.compile(
-    r"\b(?:you|you've|you'?re)\s+(?:said|say|says|mention(?:ed)?|claim(?:ed|ing)?|"
-    r"suggest(?:ed|ing)?|think|believe|thought|stated?|informed)\b[^.;\n]{0,80}$|"
-    r"\byour\s+(?:belief|assertion|statement|experience)\b[^.;\n]{0,100}$", re.I)
+    r"\b(?:you|you've|you'?re|you\s+(?:are|were|have))\s+"
+    r"(?:(?:still|strongly|firmly|repeatedly|previously|initially|originally|actually|quite|very|might|may|could|did)\s+)*"
+    r"(?:said|say|says|mention(?:ed)?|claim(?:ed|ing)?|suggest(?:ed|ing)?|"
+    r"think|believe|thought|stated?|informed|certain|confident|convinced|sure)\b[^.;\n]*$|"
+    r"\byour\s+(?:(?:repeated|earlier|original|previous)\s+)?"
+    r"(?:belief|claim|assertion|statement|experience|description)\b[^.;\n]*$|"
+    r"\byour\s+(?:information|knowledge)\s+(?:suggests?|indicates?|says?|states?)\b[^.;\n]*$", re.I)
+_ENDORSEMENT = re.compile(r"\bi\s+(?:(?:will|now)\s+(?:accept|update|use|trust)|agree|accept)\b", re.I)
+_QUESTION_MENTION = re.compile(r"\bquestion\s+(?:was|is)\s+about\s+(?:the\s+)?[\"']?$", re.I)
+_DISAVOWED = re.compile(r"^[\"'\s,]*(?:but|which)\s+(?:that|it|this)\s+"
+                       r"(?:was|is|seems to be)\s+(?:an?\s+)?(?:error|incorrect|wrong)\b", re.I)
 # Requests, hypothetical alternatives, and proximity are not the entity's value.
 _NON_ASSERTION = re.compile(
-    r"\bif\b|\b(?:could|might|may)\s+be\b|\b(?:looking for|suggest other)\b|"
-    r"\b(?:close to|near|nearby)\b|"
+    r"\bif\b|\b(?:could|might|may)\s+(?:(?:actually|possibly|potentially)\s+)?be\b|\b(?:looking for|suggest other)\b|"
+    r"\b(?:close to|near|nearby|stretch to (?:call|say))\b|"
     r"\b(?:couldn'?t find|do not have|don't have|does not support|"
     r"doesn't provide|does not provide)\b", re.I)
+
+# An explicit, unconditional replacement record supersedes its earlier values.
+# Merely saying the record may be wrong does not count as a replacement.
+_UPDATE = re.compile(r"\bi\s+(?:will|have|am going to)\s+(?:update|updated|correct|corrected)\s+"
+                     r"(?:the\s+)?(?:record|information)\b[^.!?\n]*[.!\n]", re.I)
+_RECORD_HEADER = re.compile(r"^\s*(?:updated|corrected|attraction|restaurant|hotel)\s+record\s*:\s*$", re.I | re.M)
+
+
+def _current_record(text: str, attribute: str) -> str:
+    """Discard superseded prose only for an explicit update followed by a record."""
+    for update in _UPDATE.finditer(text):
+        start = max(text.rfind(c, 0, update.start()) for c in '.;!?\n') + 1
+        if re.search(r"\b(?:if|unless|might|may|could)\b", text[start:update.start()], re.I):
+            continue
+        header = _RECORD_HEADER.search(text, update.end())
+        if header and not text[update.end():header.start()].strip():
+            tail = text[header.end():]
+            if re.search(rf"^\s*-?\s*{attribute}\s*:", tail, re.I | re.M):
+                return tail
+    return text
+
+
+def _explicit_correction(text: str, patterns: dict[str, str]) -> str:
+    """Use a clearly announced revised answer, but never reconcile conflicting Value lines."""
+    lines = _VALUE_LINE.findall(text)
+    if len(lines) != 1 or _match_one(lines[0], patterns) is None:
+        return text
+    anchors = list(re.finditer(
+        r"\b(?:the correct (?:area|price range|rating) should be|"
+        r"to directly answer your original question based on your input)\b", text, re.I))
+    if anchors:
+        tail = text[anchors[-1].start():]
+        if _VALUE_LINE.search(tail):
+            return tail
+    # A past record plus an explicit decision to adopt the new information is a
+    # correction, rather than two simultaneous current assertions.
+    if re.search(r"\b(?:was listed|previously stated|earlier stated)\b", text, re.I):
+        choice = re.search(r"\bi will go with your information\b", text, re.I)
+        if choice and _VALUE_LINE.search(text[choice.end():]):
+            return text[choice.end():]
+    return text
 
 
 def _match_one(text: str, patterns: dict[str, str]) -> str | None:
@@ -102,10 +153,16 @@ def _asserted(text: str, patterns: dict[str, str]) -> set[str]:
             sentence = text[sentence_start:sentence_end]
             if '?' in sentence or _NON_ASSERTION.search(sentence):
                 continue
+            if _DISAVOWED.search(text[m.end():sentence_end]):
+                continue
             before = text[sentence_start:m.start()]
             # A contrast can end a report of the user's claim or a negation.
-            before = re.split(r"\b(?:but|however)\b", before, flags=re.I)[-1]
-            if not (_NEG_BEFORE.search(before) or _REPORTED.search(before)):
+            before = re.split(
+                r"\b(?:but|however|whereas)\b|,\s*(?:and\s+)?(?=(?:it\b|the\s+record\b))|"
+                r"\band\s+(?=(?:the\s+)?(?:record|area|price\s*range|pricerange|rating)\b)",
+                before, flags=re.I)[-1]
+            reported = _REPORTED.search(before) and not _ENDORSEMENT.search(sentence)
+            if not (_NEG_BEFORE.search(before) or reported or _QUESTION_MENTION.search(before)):
                 out.add(v)
                 break
     return out
@@ -115,7 +172,9 @@ def parse_value(text: str, attribute: str | None) -> str | None:
     """Normalized stated value, or None for absent/ambiguous/conflicting evidence."""
     if not attribute or attribute not in VALUE_PATTERNS or not text or not text.strip():
         return None
+    text = _current_record(text, attribute)
     patterns = VALUE_PATTERNS[attribute]
+    text = _explicit_correction(text, patterns)
     lines = _VALUE_LINE.findall(text)
     free = _STARS_IN_TEXT if attribute == "stars" else patterns
     # Strip formatting and output fields before looking for prose assertions.

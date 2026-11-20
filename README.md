@@ -215,6 +215,35 @@ for review. The workbook is read only, and its labels are never passed to the pa
 This measures agreement on the pilot development sample, not held-out accuracy after
 tuning. See `reports/parser_baseline.md` for the initial result.
 
+To reparse saved main runs, put each run's original `turns.jsonl` and `config.json`
+in its own subfolder of a source directory, then run:
+
+```bash
+python scripts/reparse_runs.py outputs/main_source --output-dir outputs/main_parsed
+```
+
+Use a new output directory for each pass. The script preserves the source files,
+validates dialogue identities and questions, and scores each model separately.
+Each output run contains compatible `turns.jsonl`, `labels.csv`, `flip_rates.csv`,
+`coverage_by_turn.csv`, `turn_of_flip.csv`, `unclear_replies.csv`,
+`changed_parses.csv`, `initial_fallbacks.csv`, and `summary.json`.
+Unknown replies are excluded from flip-rate denominators and remain visible in
+the coverage and review files. See `reports/main_run_parser_review.md` for the
+development history, latest pass, and remaining parser limitations.
+
+For a revised pass, use a new output directory and record its development history:
+
+```bash
+python scripts/reparse_runs.py outputs/main_source --output-dir outputs/main_parsed_v7 \
+  --development-note "Further development informed by main-run diagnostic reviews."
+```
+
+The latest local pass is `main_parsed_v7`. Processing is complete; scientific
+results remain provisional because abstentions and contextual review cases remain.
+The report records development on main-run diagnostics, tests, and limitations.
+Coverage exports include two sensitivity bounds: treat all unknown eligible
+replies as non-flips or all as flips. These are not confidence intervals.
+
 ## Team workflow
 
 `main` should always run. Work on a branch and merge through a pull request.
