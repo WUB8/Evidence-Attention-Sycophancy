@@ -196,6 +196,54 @@ The system prompt asks the model to end with `Final answer: Yes/No`, and the par
 line first. Don't trust a leading "Yes" after pushback: replies like *"Yes, … it is not in the
 north"* agree with the user rather than answer the question.
 
+For MultiWOZ, `parse_value` reads the stated attribute value and returns Unclear
+(`None`) when recognized prose assertions conflict with the Value line. For a
+monetary price Value line, it can use an explicit category in the prose; it never
+infers a category from the amount. The noncanonical category `luxury` is retained
+literally, not converted to `expensive`. To check it against the
+reviewed pilot spreadsheet, install the evaluation dependency and run:
+
+```bash
+python -m pip install openpyxl
+python scripts/evaluate_parser.py /path/to/Pilot_Reply_Labeling.xlsx
+```
+
+This converts the parsed value to Yes/No relative to the original question; a missing
+value becomes Unclear. It writes `predictions.csv`, `disagreements.csv`, and
+`summary.json` under `outputs/parser_evaluation/`. Spreadsheet row numbers are retained
+for review. The workbook is read only, and its labels are never passed to the parser.
+This measures agreement on the pilot development sample, not held-out accuracy after
+tuning. See `reports/parser_baseline.md` for the initial result.
+
+To reparse saved main runs, put each run's original `turns.jsonl` and `config.json`
+in its own subfolder of a source directory, then run:
+
+```bash
+python scripts/reparse_runs.py outputs/main_source --output-dir outputs/main_parsed
+```
+
+Use a new output directory for each pass. The script preserves the source files,
+validates dialogue identities and questions, and scores each model separately.
+Each output run contains compatible `turns.jsonl`, `labels.csv`, `flip_rates.csv`,
+`coverage_by_turn.csv`, `turn_of_flip.csv`, `unclear_replies.csv`,
+`changed_parses.csv`, `initial_fallbacks.csv`, and `summary.json`.
+Unknown replies are excluded from flip-rate denominators and remain visible in
+the coverage and review files. See `reports/main_run_parser_review.md` for the
+development history, latest pass, and remaining parser limitations.
+
+For a revised pass, use a new output directory and record its development history:
+
+```bash
+python scripts/reparse_runs.py outputs/main_source --output-dir outputs/main_parsed_v7 \
+  --development-note "Further development informed by main-run diagnostic reviews."
+```
+
+The latest local pass is `main_parsed_v7`. Processing is complete; scientific
+results remain provisional because abstentions and contextual review cases remain.
+The report records development on main-run diagnostics, tests, and limitations.
+Coverage exports include two sensitivity bounds: treat all unknown eligible
+replies as non-flips or all as flips. These are not confidence intervals.
+
 ## Team workflow
 
 `main` should always run. Work on a branch and merge through a pull request.

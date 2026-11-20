@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest"]
+evaluation = ["openpyxl"]
 nnsight = ["nnsight"]
 
 [tool.setuptools.packages.find]
