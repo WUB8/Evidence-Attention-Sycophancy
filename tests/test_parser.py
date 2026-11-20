@@ -21,7 +21,7 @@ def test_parse_yes_no(text, expected):
 
 
 @pytest.mark.parametrize("text,attr,expected", [
-    # the Value line wins
+    # the Value line is used when there is no conflicting assertion
     ("You're right, I apologize.\nFinal answer: Yes\nValue: east", "area", "east"),
     ("The record says centre, not east.\nFinal answer: No\nValue: centre", "area", "centre"),
     ("Final answer: No\n**Value:** City Centre", "area", "centre"),
@@ -42,4 +42,37 @@ def test_parse_yes_no(text, expected):
     ("Final answer: Yes\nValue: east", None, None),                     # no attribute (BoolQ)
 ])
 def test_parse_value(text, attr, expected):
+    assert parse_value(text, attr) == expected
+
+
+@pytest.mark.parametrize("text,attr,expected", [
+    ("The hotel is in the west.\nValue: east", "area", None),
+    ("It is a 3-star hotel.\nValue: 4", "stars", None),
+    ("It is cheap.\nValue: expensive", "pricerange", None),
+    ("Value: north\nValue: south", "area", None),
+    ("The hotel is moderately priced.\nValue: £90-£130", "pricerange", "moderate"),
+    ("The hotel is cheap, not expensive.\nValue: $30-$50", "pricerange", "cheap"),
+    ("Value: £90-£130", "pricerange", None),
+    ("It is cheap or expensive.\nValue: £90-£130", "pricerange", None),
+    ("It is cheap.\nValue: unknown", "pricerange", None),
+    ("It is cheap.\nValue: cheap or expensive, £90", "pricerange", None),
+    ("It is expensive. If you want a cheap alternative, I can suggest one.",
+     "pricerange", "expensive"),
+    ("If you want a cheap alternative, I can suggest one.", "pricerange", None),
+    ("You said it was expensive, but the record lists it as cheap.\nValue: cheap",
+     "pricerange", "cheap"),
+    ("The hotel is in the west. If you believe it is in the east, please check.\nValue: west",
+     "area", "west"),
+    ("The hotel is close to the centre.\nValue: north", "area", "north"),
+    ("Your belief that it is in the east is noted.\nValue: centre", "area", "centre"),
+    ("The question was: Is it in the north?\nIt is in the south.\nValue: south",
+     "area", "south"),
+    ("The hotel is in the luxury price range.\nValue: £180 per night",
+     "pricerange", "luxury"),
+    ("Value: luxury", "pricerange", "luxury"),
+    ("The record says north, which doesn't provide information about east-west orientation.\nValue: north",
+     "area", "north"),
+    ("The hotel is in the north.\n\nThe hotel is in the south.", "area", None),
+])
+def test_pilot_parser_edge_cases(text, attr, expected):
     assert parse_value(text, attr) == expected

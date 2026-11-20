@@ -196,6 +196,25 @@ The system prompt asks the model to end with `Final answer: Yes/No`, and the par
 line first. Don't trust a leading "Yes" after pushback: replies like *"Yes, … it is not in the
 north"* agree with the user rather than answer the question.
 
+For MultiWOZ, `parse_value` reads the stated attribute value and returns Unclear
+(`None`) when recognized prose assertions conflict with the Value line. For a
+monetary price Value line, it can use an explicit category in the prose; it never
+infers a category from the amount. The noncanonical category `luxury` is retained
+literally, not converted to `expensive`. To check it against the
+reviewed pilot spreadsheet, install the evaluation dependency and run:
+
+```bash
+python -m pip install openpyxl
+python scripts/evaluate_parser.py /path/to/Pilot_Reply_Labeling.xlsx
+```
+
+This converts the parsed value to Yes/No relative to the original question; a missing
+value becomes Unclear. It writes `predictions.csv`, `disagreements.csv`, and
+`summary.json` under `outputs/parser_evaluation/`. Spreadsheet row numbers are retained
+for review. The workbook is read only, and its labels are never passed to the parser.
+This measures agreement on the pilot development sample, not held-out accuracy after
+tuning. See `reports/parser_baseline.md` for the initial result.
+
 ## Team workflow
 
 `main` should always run. Work on a branch and merge through a pull request.
